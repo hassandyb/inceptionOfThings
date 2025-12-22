@@ -1,0 +1,28 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  
+  config.vm.define "hed-dybS" do |server|
+    server.vm.hostname = "hed-dybS"
+    server.vm.network "private_network", ip: "192.168.56.110"
+    
+    server.vm.provider "virtualbox" do |vb|
+      vb.name = "hed-dybS"
+      vb.memory = "2048"
+      vb.cpus = 2
+    end
+    
+    #server.vm.synced_folder "./apps", "/vagrant/apps"
+    
+    server.vm.provision "shell", inline: <<-SHELL
+      echo "Installing K3s..."
+      curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+      
+      echo "Waiting for K3s..."
+      sleep 20
+      
+      echo "✅ K3s installed!"
+      echo "Run: vagrant ssh hed-dybS"
+      echo "Then: kubectl get nodes"
+    SHELL
+  end
+end
