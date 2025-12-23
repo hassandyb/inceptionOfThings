@@ -1,0 +1,151 @@
+
+
+
+Access the VM via IP ----
+
+vagrant ssh serverS
+ssh vagrant@192.168.56.110
+
+Vagrant nodes → vagrant status / vagrant global-status
+
+Kubernetes nodes → kubectl get nodes
+
+
+
+vagrant up serverS
+vagrant up
+vagrant ssh serverS
+vagrant destroy -f
+vagrant ssh serverSW
+vagrant reload
+vagrant validate
+vagrant halt
+
+
+# Get pod name
+kubectl get pods
+
+# Exec into pod
+kubectl exec -it app1-xxx-yyy -- /bin/sh
+
+
+
+
+sudo kubectl get nodes
+
+
+
+kubectl run test-pod --image=nginx:alpine
+
+kubectl get pods 
+kubectl get pods -o wide
+kubectl get pods --all-namespaces
+kubectl get pods --watch
+
+accss iside the contianer : ....
+kubectl exec -it <pod_name> -- /bin/sh
+
+kubectl logs <pod_name>
+kubectl describe pod <pod_name>
+
+ kubectl scale deployment <pod_name> --replicas=2
+
+
+sudo cat /var/lib/rancher/k3s/server/token
+K10b19f0eae80e361f57ec0bb4b4f859d9c797cdd50b07b03d2cc4c535d041d5985::server:3a7b064d5135c897160f60a17ca29aaf
+
+
+# Check if K3s is running
+sudo systemctl status k3s
+
+# Check nodes
+sudo kubectl get nodes
+
+
+
+sudo kubectl describe pod test-nginx
+
+sudo kubectl delete pod test-nginx
+kubectl delete deployment <pod_name> // if the pod made by a deployment ...
+
+sudo kubectl get pods
+
+vagrant status
+
+
+
+
+
+
+ps aux | grep -E 'vagrant'3
+kill -9 5197 5198 520
+vagrant destroy -f
+
+
+kubectl get nodes
+kubectl get deployments
+kubectl get services
+kubectl get ingress
+kubectl get pods 
+
+
+kubectl version --client
+
+
+kubectl apply -f test.yaml
+kubectl get all
+kubectl port-forward pod/app1-566f4b5989-c4bxk 8080:80
+kubectl port-forward pod/<pod-name> 8080:80
+
+kubectl run my-nginx --image=nginx:alpine --port=80
+kubectl get pods
+kubectl describe pod my-nginx
+kubectl delete pod my-nginx
+
+
+kubectl apply -f my-deployment.yaml
+kubectl get deployments
+kubectl scale deployment my-deployment --replicas=3
+kubectl rollout status deployment my-deployment
+kubectl delete deployment my-deployment
+
+
+kubectl expose deployment my-deployment --type=NodePort --port=80
+kubectl get svc
+kubectl delete svc my-deployment
+
+
+kubectl apply -f my-ingress.yaml
+kubectl get ingress
+
+
+
+
+kubectl get all          # see everything
+kubectl get nodes        # see nodes
+kubectl logs my-nginx    # view pod logs
+kubectl exec -it my-nginx -- sh   # enter pod shell
+
+
+kubectl get services
+
+kubectl explain deployment
+kubectl explain service
+kubectl explain ingress
+
+
+
+kubectl describe pod <pod_name>
+kubectl exec -it <pod_name> -- sh
+
+kubectl get endpoints app1-service
+kubectl scale deployment app1-deployment --replicas=3
+
+
+
+kubectl apply -f /vagrant/confs/ingress.yaml
+kubectl get ingress
+kubectl delete ingress apps-ingress
+
+
+kubectl get deployments

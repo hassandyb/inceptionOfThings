@@ -1,0 +1,25 @@
+
+
+
+Each VM/machine = 1 node
+Multiple nodes work together as a cluster
+Server node manages, worker nodes do the work
+
+
+--------------------------------------
+
+kubernetes.md : 4. Ingress - External Access Rules
+
+(move to guide4)Guide1 : SStep 3.2: Add App1 Service
+
+
+
+
+Guide4 : Step 7.1: Scale App1 to 3
+
+
+
+curl http://192.168.56.110
+curl http://localhost 
+
+visite 192.168.56.110 ore app.. on your browser ...

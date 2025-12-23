@@ -1,1 +1,1 @@
-{"virtualbox":{"/vagrant":{"guestpath":"/vagrant","hostpath":"/home/hassan/Desktop/inceptionOfThings/iot/p2","disabled":false,"__vagrantfile":true}}}
+{"virtualbox":{"/vagrant/apps":{"guestpath":"/vagrant/apps","hostpath":"/home/hassan/Desktop/inceptionOfThings/iot/p2/apps","disabled":false,"__vagrantfile":true},"/vagrant":{"guestpath":"/vagrant","hostpath":"/home/hassan/Desktop/inceptionOfThings/iot/p2","disabled":false,"__vagrantfile":true}}}

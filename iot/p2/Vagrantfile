@@ -11,18 +11,7 @@ Vagrant.configure("2") do |config|
       vb.cpus = 2
     end
     
-    #server.vm.synced_folder "./apps", "/vagrant/apps"
-    
-    server.vm.provision "shell", inline: <<-SHELL
-      echo "Installing K3s..."
-      curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
-      
-      echo "Waiting for K3s..."
-      sleep 20
-      
-      echo "✅ K3s installed!"
-      echo "Run: vagrant ssh hed-dybS"
-      echo "Then: kubectl get nodes"
-    SHELL
+    server.vm.synced_folder "./apps", "/vagrant/apps"
+    server.vm.provision "shell", path: "scripts/server.sh"
   end
 end
