@@ -15,7 +15,7 @@ kubernetes.md : 4. Ingress - External Access Rules
 
 
 
-Guide4 : Step 7.1: Scale App1 to 3
+Guide6 : 4.3 Service
 
 
 

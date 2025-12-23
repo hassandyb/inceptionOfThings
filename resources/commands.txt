@@ -149,3 +149,7 @@ kubectl delete ingress apps-ingress
 
 
 kubectl get deployments
+
+kubectl cluster-info dump
+
+
