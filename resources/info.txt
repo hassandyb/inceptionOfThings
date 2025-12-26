@@ -15,11 +15,16 @@ kubernetes.md : 4. Ingress - External Access Rules
 
 
 
-Guide6 : 4.3 Service
-
 
 
 curl http://192.168.56.110
 curl http://localhost 
 
 visite 192.168.56.110 ore app.. on your browser ...
+
+
+
+
+Guide7 : Phase 3: Create GitHub Repository...
+
+

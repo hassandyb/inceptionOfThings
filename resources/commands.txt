@@ -82,6 +82,8 @@ kill -9 5197 5198 520
 vagrant destroy -f
 
 
+
+kubectl run test-nginx --image=nginx
 kubectl get nodes
 kubectl get deployments
 kubectl get services
@@ -151,5 +153,97 @@ kubectl delete ingress apps-ingress
 kubectl get deployments
 
 kubectl cluster-info dump
+
+============================================================================
+Part3: 
+============================================================================
+
+remove docker ------------------------
+sudo apt purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo rm -rf /var/lib/docker /var/lib/containerd /etc/docker
+sudo groupdel docker 2>/dev/null || true
+sudo apt autoremove -y
+
+==> docker --version
+
+remove kubectl --------------------
+sudo snap remove kubectl 2>/dev/null || true; sudo rm -f /usr/local/bin/kubectl /usr/bin/kubectl /snap/bin/kubectl; hash -r; command -v kubectl
+
+==>  which kubectl - command -v kubectl - kubectl version --client
+
+remove k3d -----------------
+
+sudo k3d cluster list -o json | jq -r '.[].name' | xargs -r -n1 sudo k3d cluster delete; sudo rm -f /usr/local/bin/k3d
+
+==> k3d version 
+
+
+
+
+
+
+kubectl cluster-info
+k3d cluster list
+
+k3d cluster  create      Create a new cluster
+k3d cluster  delete      Delete cluster(s).
+k3d cluster  edit        [EXPERIMENTAL] Edit cluster(s).
+k3d cluster  list        List cluster(s)
+k3d cluster  start       Start existing k3d cluster(s)
+k3d cluster  stop        Stop existing k3d cluster(s)
+  
+
+
+
+
+
+
+k3d kubeconfig merge cluster-test -d --overwrite
+
+kubectl config current-context
+kubectl config get-contexts
+
+kubectl run test-nginx --image=nginx
+
+
+
+kubectl create namespace test-namespace
+kubectl get namespaces
+kubectl config set-context --current --namespace=test-namespace
+kubectl edit namespace test-namespace
+kubectl get namespace test-namespace --show-labels
+kubectl delete namespace test-namespace
+
+
+kubectl get pods -n argocd
+kubectl get deployment argocd-server -n argocd
+kubectl config set-context --current --namespace=argocd
+kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+
+Argo CD admin password.
+Username: admin
+password : kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 --decode
+
+
+
+
+ports --------------------
+lsof -i
+
+find : sudo lsof -i :8085
+kill: sudo kill -9 <PID>
+
+
+kill : sudo pkill -f "port-forward.*8085"
+forward : kubectl port-forward svc/argocd-server -n argocd 8085:443
+
+
+visite : 
+http://localhost:8085
+or (if you have a remote server)
+
+ssh -L 8085:localhost:8085 user@your-vm-ip
+curl -k https://localhost:8085
 
 
