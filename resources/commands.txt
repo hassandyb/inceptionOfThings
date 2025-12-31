@@ -264,3 +264,11 @@ SWITCH NAMESPACES : kubectl config set-context --current --namespace=dev
 kubectl delete -f application.yaml
 kubectl get nodes -n dev
 kubectl get pods -n dev
+
+
+
+git clone --recurse-submodules <repo-url>
+git submodule update --init --recursive
+
+
+
