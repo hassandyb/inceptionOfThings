@@ -238,6 +238,15 @@ kill: sudo kill -9 <PID>
 kill : sudo pkill -f "port-forward.*8085"
 forward : kubectl port-forward svc/argocd-server -n argocd 8085:443
 
+get pod name : kubectl get pods -n dev 
+forwarding the prot : kubectl port-forward $POD_NAME -n dev 8888:8888
+
+
+
+
+
+
+
 
 visite : 
 http://localhost:8085
@@ -247,3 +256,11 @@ ssh -L 8085:localhost:8085 user@your-vm-ip
 curl -k https://localhost:8085
 
 
+
+specifying a namespace ......................
+Get Current namespace : kubectl config view --minify --output 'jsonpath={..namespace}'
+SWITCH NAMESPACES : kubectl config set-context --current --namespace=dev
+
+kubectl delete -f application.yaml
+kubectl get nodes -n dev
+kubectl get pods -n dev

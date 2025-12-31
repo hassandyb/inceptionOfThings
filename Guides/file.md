@@ -1,412 +1,752 @@
-You've identified a critical issue! When k3d creates a cluster, it **should** automatically merge the kubeconfig and switch context, but there are cases where this fails (like the permission issues you encountered).
-
-Let's fix your script to **guarantee** the cluster is created AND the context is switched properly.
-
-## **Solution: Add Kubeconfig Merge After Cluster Creation**
-
-
-```bash
-#!/bin/bash
-
-set -e
-
-echo ""
-echo "[4/5] Creating K3d cluster..."
-
-CLUSTER_NAME="hed-dybS"
-
-# Check if cluster already exists
-if k3d cluster list | grep -q "$CLUSTER_NAME"; then
-    echo "Cluster '$CLUSTER_NAME' already exists"
-    echo "Deleting old cluster..."
-    k3d cluster delete $CLUSTER_NAME
-fi
-
-# Create cluster
-echo "Creating cluster '$CLUSTER_NAME'..."
-k3d cluster create $CLUSTER_NAME
-
-# CRITICAL: Ensure kubeconfig is properly merged and context switched
-echo ""
-echo "Merging kubeconfig and switching context..."
-k3d kubeconfig merge $CLUSTER_NAME -d --overwrite
-
-# Verify we're on the correct context
-CURRENT_CONTEXT=$(kubectl config current-context)
-echo "Current kubectl context: $CURRENT_CONTEXT"
-
-# If not on the right context, switch explicitly
-if [[ "$CURRENT_CONTEXT" != "k3d-$CLUSTER_NAME" ]]; then
-    echo "Switching to k3d-$CLUSTER_NAME context..."
-    kubectl config use-context "k3d-$CLUSTER_NAME"
-fi
-
-echo ""
-echo "[5/5] Verifying cluster..."
-
-# Wait for cluster to be ready
-echo "Waiting for nodes to be ready..."
-sleep 5
-
-# Check nodes (should now show k3d nodes, not host)
-kubectl get nodes
-
-# Verify we got the right nodes
-NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
-if [[ $NODE_COUNT -eq 0 ]]; then
-    echo "ERROR: No nodes found! Context switch failed."
-    exit 1
-fi
-
-echo ""
-echo "============================================"
-echo "     K3d Setup Complete!"
-echo "============================================"
-echo ""
-echo "Cluster: $CLUSTER_NAME"
-echo "Context: k3d-$CLUSTER_NAME"
-echo "Nodes: $NODE_COUNT"
-echo ""
-echo "Next step: Run argocd.sh to install Argo CD"
-echo ""
-```
-
+Perfect! Let's build this **step by step** and **understand every piece**. No copy-paste - we'll construct it line by line with tests!
 
 ---
 
-## **What Changed?**
+## **🎯 Part 1: Understanding What We Need**
 
-### **1. Kubeconfig Merge (Line 20-21)**
+We need 2 Kubernetes resources:
+1. **Deployment** - Runs our application
+2. **Service** - Exposes the application
 
-```bash
-k3d kubeconfig merge $CLUSTER_NAME -d --overwrite
-```
-
-
-**Flags:**
-- `-d` = merge into **default** kubeconfig (`~/.kube/config`)
-- `--overwrite` = replace existing entries (important for reruns)
-
-This **guarantees** the k3d cluster config is written to your main kubeconfig.
+Let's build them **incrementally** and test each addition!
 
 ---
 
-### **2. Context Verification (Line 23-30)**
+## **📝 Step 1: Create Empty File**
 
 ```bash
-CURRENT_CONTEXT=$(kubectl config current-context)
-echo "Current kubectl context: $CURRENT_CONTEXT"
-
-if [[ "$CURRENT_CONTEXT" != "k3d-$CLUSTER_NAME" ]]; then
-    echo "Switching to k3d-$CLUSTER_NAME context..."
-    kubectl config use-context "k3d-$CLUSTER_NAME"
-fi
+cd ~/Desktop/inceptionOfThings/iot/p3/iot-hed-dyb/manifests
+nano application.yaml
 ```
 
+**Start with absolutely nothing - empty file!**
 
-**Why?**
-- k3d **usually** switches context automatically
-- But if it fails (permissions, existing contexts, etc.), this catches it
-- Explicitly switches to `k3d-hed-dybS` context
+**Save (Ctrl+O, Enter, Ctrl+X)**
 
 ---
 
-### **3. Node Count Validation (Line 42-46)**
+## **🧪 Step 2: Add Minimal Deployment**
 
-```bash
-NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
-if [[ $NODE_COUNT -eq 0 ]]; then
-    echo "ERROR: No nodes found! Context switch failed."
-    exit 1
-fi
-```
+Let's start with the **smallest possible deployment**:
 
+````yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wil
+spec:
+  selector:
+    matchLabels:
+      app: wil
+  template:
+    metadata:
+      labels:
+        app: wil
+    spec:
+      containers:
+      - name: wil
+        image: wil42/playground:v1
+````
 
-**Why?**
-- If `kubectl get nodes` returns 0 nodes, something went wrong
-- Script exits with error instead of continuing silently
+**What each line means:**
+- `apiVersion: apps/v1` - Kubernetes API version for Deployments
+- `kind: Deployment` - We're creating a Deployment (not Pod, Service, etc.)
+- `metadata.name: wil` - Name of this deployment
+- `selector.matchLabels` - How deployment finds its pods
+- `template` - The pod template to create
+- `containers` - List of containers in the pod
+- `image` - Docker image to run
 
----
-
-## **Test Your Script**
-
-### **Step 1: Clean Everything**
-
-
-```bash
-# Delete all k3d clusters
-k3d cluster delete cluster-test
-k3d cluster delete test-cluster
-
-# Verify
-k3d cluster list
-```
-
-
-**Expected:**
-
-```
-NAME   SERVERS   AGENTS   LOADBALANCER
-```
-
+**Save**
 
 ---
 
-### **Step 2: Run Your Fixed Script**
-
-
-```bash
-./scripts/k3d.sh
-```
-
-
-**Expected output:**
-
-```
-[4/5] Creating K3d cluster...
-Creating cluster 'hed-dybS'...
-INFO[0000] Prep: Network
-INFO[0000] Created network 'k3d-hed-dybS'
-...
-INFO[0015] Cluster 'hed-dybS' created successfully!
-
-Merging kubeconfig and switching context...
-/home/hassan/.kube/config
-Current kubectl context: k3d-hed-dybS
-
-[5/5] Verifying cluster...
-Waiting for nodes to be ready...
-NAME                   STATUS   ROLES                  AGE   VERSION
-k3d-hed-dybs-server-0  Ready    control-plane,master   10s   v1.31.5+k3s1
-
-============================================
-     K3d Setup Complete!
-============================================
-
-Cluster: hed-dybS
-Context: k3d-hed-dybS
-Nodes: 1
-```
-
-
-✅ **Now `kubectl get nodes` shows k3d nodes, not your host!**
-
----
-
-### **Step 3: Manual Verification**
-
+## **🧪 Test 1: Apply Minimal Deployment**
 
 ```bash
-# Check context
-kubectl config current-context
-```
-
-
-**Expected:**
-
-```
-k3d-hed-dybS
-```
-
-
----
-
-```bash
-# Check nodes
-kubectl get nodes
-
+kubectl apply -f application.yaml
 ```
 
 **Expected:**
 ```
-
-NAME                   STATUS   ROLES                  AGE   VERSION
-k3d-hed-dybs-server-0  Ready    control-plane,master   1m    v1.31.5+k3s1
-
+deployment.apps/wil created
 ```
 
 ---
 
-```
-bash
-# Check cluster list
-k3d cluster list
+**Check deployment:**
 
+```bash
+kubectl get deployment
 ```
 
 **Expected:**
 ```
-
-NAME      SERVERS   AGENTS   LOADBALANCER
-hed-dybS  1/1       0/0      true
-
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE
+wil    0/1     1            0           5s
 ```
 
-✅ **Everything aligned!**
+**Problem: `READY 0/1` - Pod isn't ready! Why?**
 
 ---
 
-## **Alternative: Even Safer Approach**
+**Check pods:**
 
-If you want to be **extra paranoid**, add kubeconfig path explicitly:
-
+```bash
+kubectl get pods
 ```
-bash
-#!/bin/bash
 
-set -e
+**Expected:**
+```
+NAME                   READY   STATUS    RESTARTS   AGE
+wil-xxxxxxxxxx-xxxxx   0/1     Pending   0          10s
+```
 
-echo ""
-echo "[4/5] Creating K3d cluster..."
+**Status: `Pending` - Why? No namespace specified!**
 
-CLUSTER_NAME="hed-dybS"
-KUBECONFIG_FILE="$HOME/.kube/config"
+---
 
-# Ensure .kube directory exists with correct permissions
-mkdir -p "$HOME/.kube"
-chmod 755 "$HOME/.kube"
+## **🔧 Step 3: Add Namespace**
 
-# Check if cluster already exists
-if k3d cluster list | grep -q "$CLUSTER_NAME"; then
-    echo "Cluster '$CLUSTER_NAME' already exists"
-    echo "Deleting old cluster..."
-    k3d cluster delete $CLUSTER_NAME
-fi
+**Delete what we created:**
 
-# Create cluster
-echo "Creating cluster '$CLUSTER_NAME'..."
-k3d cluster create $CLUSTER_NAME
+```bash
+kubectl delete -f application.yaml
+```
 
-# Force kubeconfig merge
-echo ""
-echo "Merging kubeconfig..."
-k3d kubeconfig merge $CLUSTER_NAME --kubeconfig-switch-context --output "$KUBECONFIG_FILE" --overwrite
+**Edit file:**
 
-# Set KUBECONFIG environment variable
-export KUBECONFIG="$KUBECONFIG_FILE"
+````yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wil
+  namespace: dev  # ← ADD THIS
+spec:
+  selector:
+    matchLabels:
+      app: wil
+  template:
+    metadata:
+      labels:
+        app: wil
+    spec:
+      containers:
+      - name: wil
+        image: wil42/playground:v1
+````
 
-# Verify context
-CURRENT_CONTEXT=$(kubectl config current-context)
-echo "Current context: $CURRENT_CONTEXT"
+**Save**
 
-# Explicit switch if needed
-if [[ "$CURRENT_CONTEXT" != "k3d-$CLUSTER_NAME" ]]; then
-    kubectl config use-context "k3d-$CLUSTER_NAME"
-    CURRENT_CONTEXT=$(kubectl config current-context)
-    echo "Switched to: $CURRENT_CONTEXT"
-fi
+---
 
-echo ""
-echo "[5/5] Verifying cluster..."
+## **🧪 Test 2: Apply with Namespace**
 
-# Wait for nodes
-sleep 5
+```bash
+kubectl apply -f application.yaml
+```
 
-# Check nodes
-kubectl get nodes
-
-# Validate
-NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
-if [[ $NODE_COUNT -eq 0 ]]; then
-    echo ""
-    echo "ERROR: No nodes detected!"
-    echo "Current context: $(kubectl config current-context)"
-    echo "Available contexts:"
-    kubectl config get-contexts
-    exit 1
-fi
-
-echo ""
-echo "============================================"
-echo "     K3d Setup Complete!"
-echo "============================================"
-echo ""
-echo "Cluster: $CLUSTER_NAME"
-echo "Context: $(kubectl config current-context)"
-echo "Nodes: $NODE_COUNT"
-echo "Kubeconfig: $KUBECONFIG_FILE"
-echo ""
-echo "Next step: Run argocd.sh to install Argo CD"
-echo ""
-
+**Expected:**
+```
+deployment.apps/wil created
 ```
 
 ---
 
-## **Why Your Original Issue Happened**
+**Check in dev namespace:**
 
-Looking at your output:
-
-```
-bash
-hassan@hassan-Latitude-5450:~/Desktop/inceptionOfThings/iot/p3$ kubectl get nodes
-NAME                   STATUS   ROLES                  AGE     VERSION
-hassan-latitude-5450   Ready    control-plane,master   5d20h   v1.33.6+k3s1
-
+```bash
+kubectl get pods -n dev
 ```
 
-This is **NOT** a k3d node! This is your **host machine's k3s installation**.
+**Expected:**
+```
+NAME                   READY   STATUS              RESTARTS   AGE
+wil-xxxxxxxxxx-xxxxx   0/1     ContainerCreating   0          5s
+```
 
-**Reasons:**
-1. You had k3s installed directly on your host
-2. k3d failed to merge kubeconfig (permission issues)
-3. kubectl still pointed to host's `/etc/rancher/k3s/k3s.yaml`
-4. Creating k3d clusters but kubectl didn't know about them
+**Wait 10 seconds:**
 
-**Solution:**
-The kubeconfig merge command explicitly writes to `~/.kube/config` and switches context.
+```bash
+kubectl get pods -n dev
+```
+
+**Expected:**
+```
+NAME                   READY   STATUS    RESTARTS   AGE
+wil-xxxxxxxxxx-xxxxx   1/1     Running   0          15s
+```
+
+✅ **Pod is running! But we can't access it yet...**
 
 ---
 
-## **Quick Reference**
+## **🧪 Test 3: Try to Access Pod**
 
-### **Reset Everything**
+**Get pod name:**
+
+```bash
+POD_NAME=$(kubectl get pods -n dev -o jsonpath='{.items[0].metadata.name}')
+echo $POD_NAME
 ```
-bash
-# Delete all k3d clusters
-k3d cluster delete --all
 
-# Remove kubeconfig
-rm ~/.kube/config
+**Try port-forward directly to pod:**
 
-# Restart script
-./scripts/k3d.sh
+```bash
+kubectl port-forward $POD_NAME -n dev 8888:8888
+```
 
+**Expected:**
+```
+Forwarding from 127.0.0.1:8888 -> 8888
+```
+
+**Keep this running, open new terminal:**
+
+```bash
+curl http://localhost:8888
+```
+
+**Expected:**
+```json
+{"status":"ok", "message": "v1"}
+```
+
+✅ **Pod works! But port-forwarding to pod is not ideal...**
+
+**Stop port-forward (Ctrl+C)**
+
+---
+
+## **💡 Why We Need a Service:**
+
+**Problem:** If pod restarts, its name changes!
+- Old: `wil-abc123-xyz789`
+- New: `wil-def456-uvw012`
+
+**Solution:** Service provides a **stable endpoint** that routes to pods with matching labels!
+
+---
+
+## **🔧 Step 4: Add Labels (Best Practice)**
+
+Before adding Service, let's add more labels for organization:
+
+````yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wil
+  namespace: dev
+  labels:          # ← ADD LABELS
+    app: wil
+spec:
+  selector:
+    matchLabels:
+      app: wil
+  template:
+    metadata:
+      labels:
+        app: wil
+    spec:
+      containers:
+      - name: wil
+        image: wil42/playground:v1
+````
+
+**What changed:**
+- Added `labels` under `metadata` - labels for the Deployment itself
+
+**Apply update:**
+
+```bash
+kubectl apply -f application.yaml
+```
+
+**Expected:**
+```
+deployment.apps/wil configured
+```
+
+**Check deployment labels:**
+
+```bash
+kubectl get deployment wil -n dev --show-labels
+```
+
+**Expected:**
+```
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+wil    1/1     1            1           2m    app=wil
+```
+
+✅ **Labels added!**
+
+---
+
+## **🔧 Step 5: Add Container Port**
+
+Let's explicitly declare the port:
+
+````yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wil
+  namespace: dev
+  labels:
+    app: wil
+spec:
+  selector:
+    matchLabels:
+      app: wil
+  template:
+    metadata:
+      labels:
+        app: wil
+    spec:
+      containers:
+      - name: wil
+        image: wil42/playground:v1
+        ports:                    # ← ADD PORTS
+        - containerPort: 8888
+````
+
+**What this means:**
+- `containerPort: 8888` - Container listens on port 8888
+
+**Apply:**
+
+```bash
+kubectl apply -f application.yaml
+```
+
+**Verify pod still works:**
+
+```bash
+kubectl get pods -n dev
+```
+
+**Expected:**
+```
+NAME                   READY   STATUS    RESTARTS   AGE
+wil-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
+```
+
+✅ **Port declared!**
+
+---
+
+## **🧪 Test 4: Verify Port in Pod Spec**
+
+```bash
+kubectl get pod -n dev -o yaml | grep containerPort
+```
+
+**Expected:**
+```yaml
+    - containerPort: 8888
+      protocol: TCP
+```
+
+✅ **Port is now documented in pod spec!**
+
+---
+
+## **📋 Current State Summary**
+
+**What we have:**
+- ✅ Deployment named `wil`
+- ✅ In namespace `dev`
+- ✅ With labels `app=wil`
+- ✅ Running image `wil42/playground:v1`
+- ✅ Container listens on port 8888
+
+**What we're missing:**
+- ❌ Service to expose the deployment
+- ❌ Stable endpoint to access the app
+
+---
+
+## **🚀 Step 6: Add Service (Minimal)**
+
+**Add separator and minimal service:**
+
+````yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wil
+  namespace: dev
+  labels:
+    app: wil
+spec:
+  selector:
+    matchLabels:
+      app: wil
+  template:
+    metadata:
+      labels:
+        app: wil
+    spec:
+      containers:
+      - name: wil
+        image: wil42/playground:v1
+        ports:
+        - containerPort: 8888
+
+---                          # ← YAML DOCUMENT SEPARATOR
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-wil
+  namespace: dev
+spec:
+  selector:
+    app: wil
+  ports:
+    - port: 8080
+      targetPort: 8888
+````
+
+**What this means:**
+- `---` - Separator between multiple YAML documents
+- `kind: Service` - Creating a Service
+- `selector.app: wil` - Route traffic to pods with label `app=wil`
+- `port: 8080` - Service exposes on port 8080
+- `targetPort: 8888` - Forward to container port 8888
+
+**Save**
+
+---
+
+## **🧪 Test 5: Apply Service**
+
+```bash
+kubectl apply -f application.yaml
+```
+
+**Expected:**
+```
+deployment.apps/wil unchanged
+service/svc-wil created
 ```
 
 ---
 
-### **Switch Between Contexts**
+**Check service:**
+
+```bash
+kubectl get service -n dev
 ```
-bash
-# List contexts
-kubectl config get-contexts
 
-# Switch to k3d cluster
-kubectl config use-context k3d-hed-dybS
+**Expected:**
+```
+NAME      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+svc-wil   ClusterIP   10.43.123.456   <none>        8080/TCP   5s
+```
 
-# Switch to host k3s (if you have it)
-kubectl config use-context default
+**Key info:**
+- `TYPE: ClusterIP` - Internal cluster IP (not external)
+- `PORT(S): 8080/TCP` - Service listens on 8080
+- `CLUSTER-IP: 10.43.x.x` - Internal IP address
 
+---
+
+## **🧪 Test 6: Access via Service**
+
+**Port-forward to service (not pod!):**
+
+```bash
+kubectl port-forward svc/svc-wil -n dev 8888:8080
+```
+
+**What this means:**
+- `svc/svc-wil` - Forward to Service (not pod)
+- `8888:8080` - Local 8888 → Service 8080 → Pod 8888
+
+**Keep running, open new terminal:**
+
+```bash
+curl http://localhost:8888
+```
+
+**Expected:**
+```json
+{"status":"ok", "message": "v1"}
+```
+
+✅ **Accessing via Service works!**
+
+---
+
+## **🧪 Test 7: Delete Pod, Service Still Works**
+
+**Get current pod name:**
+
+```bash
+kubectl get pods -n dev
+```
+
+**Expected:**
+```
+NAME                   READY   STATUS    RESTARTS   AGE
+wil-abc123-xyz789      1/1     Running   0          5m
 ```
 
 ---
 
-## **Summary**
+**Delete the pod:**
 
-✅ **Add this after cluster creation:**
-```
-bash
-k3d kubeconfig merge $CLUSTER_NAME -d --overwrite
-kubectl config use-context "k3d-$CLUSTER_NAME"
-
+```bash
+kubectl delete pod -l app=wil -n dev
 ```
 
-✅ **Validate nodes:**
+**Expected:**
 ```
-bash
-NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
-if [[ $NODE_COUNT -eq 0 ]]; then
-    echo "ERROR: No nodes found!"
-    exit 1
-fi
+pod "wil-abc123-xyz789" deleted
+```
+
+---
+
+**Immediately check pods:**
+
+```bash
+kubectl get pods -n dev
+```
+
+**Expected:**
+```
+NAME                   READY   STATUS              RESTARTS   AGE
+wil-def456-uvw012      0/1     ContainerCreating   0          2s
+```
+
+**Deployment automatically created new pod!**
+
+---
+
+**Test service still works:**
+
+```bash
+curl http://localhost:8888
+```
+
+**Expected:**
+```json
+{"status":"ok", "message": "v1"}
+```
+
+✅ **Service routes to new pod automatically!**
+
+---
+
+## **🔧 Step 7: Add Protocol (Best Practice)**
+
+Let's be explicit about TCP:
+
+````yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-wil
+  namespace: dev
+spec:
+  selector:
+    app: wil
+  ports:
+    - protocol: TCP      # ← ADD THIS
+      port: 8080
+      targetPort: 8888
+````
+
+**Apply:**
+
+```bash
+kubectl apply -f application.yaml
+```
+
+**Expected:**
+```
+deployment.apps/wil unchanged
+service/svc-wil configured
+```
+
+---
+
+## **📊 Final File Structure**
+
+**Your final application.yaml:**
+
+````yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wil
+  namespace: dev
+  labels:
+    app: wil
+spec:
+  selector:
+    matchLabels:
+      app: wil
+  template:
+    metadata:
+      labels:
+        app: wil
+    spec:
+      containers:
+      - name: wil
+        image: wil42/playground:v1
+        ports:
+        - containerPort: 8888
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-wil
+  namespace: dev
+spec:
+  selector:
+    app: wil
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8888
+````
+
+---
+
+## **🎓 Understanding Questions**
+
+### **Q1: Why do we need both Deployment AND Service?**
+
+**Deployment:**
+- Creates and manages pods
+- Ensures desired number of replicas
+- Handles rolling updates
+- Restarts failed pods
+
+**Service:**
+- Provides stable endpoint
+- Load balances between pods
+- Survives pod restarts
+- Enables pod-to-pod communication
+
+**Analogy:**
+- Deployment = Factory that makes workers
+- Service = Reception desk that directs customers to workers
+
+---
+
+### **Q2: What happens if I change the image?**
+
+**Test it:**
+
+1. **Edit file:**
+   ```yaml
+   image: wil42/playground:v2  # ← Change to v2
+   ```
+
+2. **Apply:**
+   ```bash
+   kubectl apply -f application.yaml
+   ```
+
+3. **Watch pod recreation:**
+   ```bash
+   kubectl get pods -n dev -w
+   ```
+
+4. **Test new version:**
+   ```bash
+   curl http://localhost:8888
+   ```
+   **Expected:** `{"status":"ok", "message": "v2"}`
+
+---
+
+### **Q3: What if I delete the Service?**
+
+```bash
+kubectl delete service svc-wil -n dev
+```
+
+**Result:**
+- Pods still running ✅
+- Can't access via service name ❌
+- Can still port-forward to pod ✅
+
+**Recreate:**
+```bash
+kubectl apply -f application.yaml
+```
+
+---
+
+### **Q4: Port Mapping Flow**
+
+```
+Your Machine
+    ↓
+localhost:8888 (kubectl port-forward)
+    ↓
+Service Port: 8080
+    ↓
+Target Port: 8888 (pod container port)
+    ↓
+Application running inside container
+```
+
+---
+
+## **🧪 Final Verification Tests**
+
+```bash
+# 1. Check deployment
+kubectl get deployment wil -n dev
+```
+**Expected:** 1/1 Ready
+
+```bash
+# 2. Check service
+kubectl get service svc-wil -n dev
+```
+**Expected:** ClusterIP, 8080/TCP
+
+```bash
+# 3. Check pod
+kubectl get pods -n dev
+```
+**Expected:** 1/1 Running
+
+```bash
+# 4. Check endpoints (service → pod mapping)
+kubectl get endpoints svc-wil -n dev
+```
+**Expected:** One pod IP:8888
+
+```bash
+# 5. Test access
+curl http://localhost:8888
+```
+**Expected:** `{"status":"ok", "message": "v1"}`
+
+---
+
+## **✅ What You Built & Understand**
+
+- [x] Created Deployment from scratch
+- [x] Added namespace for organization
+- [x] Added labels for selection
+- [x] Declared container port
+- [x] Created Service to expose deployment
+- [x] Understood port mapping (8080 → 8888)
+- [x] Tested pod recreation
+- [x] Tested service routing
+
+---
+
+**Ready to push to GitHub and let Argo CD manage it?** 🚀

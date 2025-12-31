@@ -23,8 +23,11 @@ curl http://localhost
 visite 192.168.56.110 ore app.. on your browser ...
 
 
+read this ...
+https://devtron.ai/what-is-argocd
 
 
+file.md : Test 5: Apply Service
 Guide7 : Phase 3: Create GitHub Repository...
 
 
